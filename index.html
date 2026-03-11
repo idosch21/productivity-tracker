@@ -112,7 +112,7 @@
             color: #999;
             font-style: italic;
             margin: 50px 0;
-            display: none; /* Hidden by default */
+            display: none;
         }
 
         canvas { max-width: 100%; height: auto !important; }
@@ -173,40 +173,40 @@
             const totalDisplay = document.getElementById('total-time-display');
             const noDataMsg = document.getElementById('no-data-msg');
             const chartCanvas = document.getElementById('myChart');
+            const datePicker = document.getElementById('date-picker');
 
-            // 1. Reset UI visibility
+            // 1. Logic to keep the Date Picker UI in sync
+            if (type === 'today' || type === 'all') {
+                datePicker.value = ""; 
+            } else if (type.startsWith('date/')) {
+                datePicker.value = type.split('/')[1];
+            }
+
+            // 2. UI Reset
             noDataMsg.style.display = 'none';
             chartCanvas.style.display = 'block';
 
-            if (type === 'today') {
-                title.innerText = "Today's Activity";
-            } else if (type === 'all') {
-                title.innerText = "All-Time History";
-            } else if (type.startsWith('date/')) {
-                const selectedDate = type.split('/')[1];
-                title.innerText = `Activity for ${selectedDate}`;
-            }
+            if (type === 'today') title.innerText = "Today's Activity";
+            else if (type === 'all') title.innerText = "All-Time History";
+            else title.innerText = `Activity for ${type.split('/')[1]}`;
 
             try {
                 const response = await fetch(`http://127.0.0.1:8000/summary/${type}`);
-                
-                // If we get here, it means the server is reachable
                 if (!response.ok) throw new Error('Network error');
 
                 const data = await response.json();
-
                 statusDot.className = 'online';
                 statusText.innerText = 'Server Online';
 
                 const labels = Object.keys(data);
 
-                // 2. CHECK FOR EMPTY DATA
+                // 3. Handle Empty Data State
                 if (labels.length === 0) {
                     noDataMsg.style.display = 'block';
                     chartCanvas.style.display = 'none';
                     totalDisplay.innerText = "Total: 0h 0m 0s";
                     if (myChartInstance) myChartInstance.destroy();
-                    return; // Stop here, don't try to build a chart
+                    return;
                 }
 
                 let grandTotalSeconds = 0;
@@ -221,9 +221,7 @@
                 totalDisplay.innerText = `Total: ${formatSeconds(grandTotalSeconds)}`;
 
                 const ctx = chartCanvas.getContext('2d');
-                if (myChartInstance) {
-                    myChartInstance.destroy();
-                }
+                if (myChartInstance) myChartInstance.destroy();
 
                 myChartInstance = new Chart(ctx, {
                     type: 'doughnut',
@@ -253,7 +251,6 @@
                 });
 
             } catch (e) {
-                // 3. ACTUAL OFFLINE CASE
                 console.error("Dashboard Error:", e);
                 statusDot.className = 'offline';
                 statusText.innerText = 'Server Offline';
