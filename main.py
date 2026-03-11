@@ -168,7 +168,7 @@ def calculate_summary_from_entries(data,end_limit=None):
     
     ##We create a list of "junk" data that we don't want to show on our charts.
     ##This includes when the computer was IDLE or on a blank New Tab.
-    ignored_domains = ["127.0.0.1", "newtab", "extensions","IDLE","","System/New Tab","chrome-extension","file:"]
+    ignored_domains = ["127.0.0.1", "newtab", "extensions","IDLE","System/New Tab","chrome-extension://","file://","localhost"]
 
     ##data contains the data of the entries we have in our database,
     ##meaning that for each entry if it reached the backend, it passed the processing of the forntend,
@@ -198,7 +198,7 @@ def calculate_summary_from_entries(data,end_limit=None):
         ##If the website is in our "junk" list, we skip it.
         ##We do this AFTER calculating the time, so the 'IDLE' time 
         ##doesn't accidentally get added to the website you visited before it.
-        if domain in ignored_domains:
+        if any(junk in domain for junk in ignored_domains):
             continue
         ##If this is the first time we've seen this domain today, start at 0.
         if domain not in raw_summary:
