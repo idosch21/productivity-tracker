@@ -1,57 +1,57 @@
-# 🕒 Chronos: Smart Productivity Tracker (WIP)
-
+🕒 Chronos: Smart Productivity Tracker
 A full-stack web activity tracker that uses a Chrome Extension to log browsing telemetry and a FastAPI backend to visualize productivity in real-time.
 
-## 🚀 The Mission
-Most time trackers are "naive"—they count time as long as a tab is open. **Chronos** is built to be more accurate by utilizing the Chrome Idle API to pause tracking when the user is away from the keyboard, ensuring your "Deep Work" stats are actually real.
+🚀 The Mission
+Most time trackers are "naive"—they count time as long as a tab is open. Chronos is built for accuracy by utilizing the Chrome Idle API and Media Playback detection to ensure your "Deep Work" stats reflect reality, not just open tabs.
 
-## 🛠️ Tech Stack
-* **Extension:** JavaScript (Chrome APIs: Tabs, Idle, Storage)
-* **Backend:** Python 3.10+ (FastAPI, Pydantic)
-* **Database:** SQLite + SQLAlchemy ORM
-* **Dashboard:** HTML5/CSS3 + Chart.js (Data Visualization)
+🛠️ Tech Stack
+Extension: JavaScript (Chrome APIs: Tabs, Idle, Storage)
 
-## ✨ Key Features
-* **Intelligent Idle Detection:** Automatically stops the clock after 15 seconds of inactivity.
-* **Domain Aggregation:** Automatically groups long URLs (e.g., `github.com/user/repo`) into top-level domains for cleaner analytics.
-* **Real-time Dashboard:** A visual Doughnut chart showing your daily time distribution.
-* **RESTful API:** Clean separation of concerns between the data logger and the analytical summary.
+Backend: Python 3.10+ (FastAPI, Pydantic, SQLAlchemy)
 
-## ⚙️ Setup & Installation
+Database: SQLite (Relational data for precise timelines)
 
-### 1. Backend (FastAPI)
-```bash
+Dashboard: HTML5/CSS3 + Chart.js (Interactive Data Visualization)
+
+✨ Key Features (Newly Updated!)
+Intelligent Idle Detection & Video Bypass: Automatically stops the clock after 15 seconds of inactivity. However, if the active tab is playing audio or video (e.g., YouTube lectures or Netflix), Chronos knows to keep the timer running.
+
+Historical Data Explorer: Beyond "Today's Stats," you can now use a built-in calendar picker to jump to any specific date in your history to see what you were doing.
+
+Domain Aggregation: Automatically peels the domain name (e.g., google.com) from messy URLs for clean, readable analytics.
+
+Session Guard: Automatically filters out "noise" data, such as local project files (file:///), Chrome settings, and the tracker's own dashboard.
+
+⚙️ Setup & Installation
+1. Backend (FastAPI)
+Bash
 # Clone the repository
-git clone [https://github.com/YOUR_USERNAME/productivity-tracker.git](https://github.com/YOUR_USERNAME/productivity-tracker.git)
+git clone https://github.com/idosch21/productivity-tracker.git
 cd productivity-tracker
-```
 
 # Create and activate virtual environment
-```bash
 python -m venv venv
-.\venv\Scripts\activate
-```
+.\venv\Scripts\activate  # On Windows
 
 # Install dependencies
-```bash
-pip install fastapi uvicorn sqlalchemy
-```
-
+pip install fastapi uvicorn sqlalchemy pydantic
 2. Chrome Extension
 Open chrome://extensions/ in your browser.
 
 Enable Developer Mode.
 
-Click Load Unpacked and select the extension folder in this project.
+Click Load Unpacked and select the extension folder from this project.
 
 3. Dashboard
 Simply open index.html in your browser to view your live stats!
 
-# 🚧 Roadmap (Work in Progress)
-[ ] Distraction alert: Implement a notification that triggers after x time to check if you are not "doomscrolling"
+🚧 Roadmap
+[x] Date Filtering: Explore history day-by-day.
 
-[ ] Category Tagging: Auto-tag sites as "Productive" (GitHub, StackOverflow) or "Distraction" (Facebook, YouTube).
+[x] Audible Detection: Stay active while watching educational content.
 
-[ ] CSV Export: Allow users to download their weekly data for Excel analysis.
+[ ] Category Tagging: Auto-tag sites as "Productive" (GitHub, StackOverflow) or "Distraction".
+
+[ ] Daily Goals: Set a target for "Study Time" and track your progress bar.
 
 [ ] Dark Mode: Because every dev loves dark mode.
