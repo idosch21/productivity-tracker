@@ -40,9 +40,13 @@ chrome.idle.setDetectionInterval(15);
             //We query for the active tab and are checking if the user is watching something with audio meaning that 
             //he is probably watching a video hence he is not idle
             chrome.tabs.query({active:true,currentWindow:true},(tabs)=>{
-                if (tabs[0] && tabs[0].audible){
-                    console.log("User is physically idle but tab is making noise (maybe watching a video)");
-                    return;
+                if (tabs[0]){
+                    const isMeeting = tabs[0].url.includes("meet.google.com") || tabs[0].url.includes("zoom.us");
+                    // If it's a meeting OR it's making noise, don't go idle.
+                    if (tabs[0].audible || isMeeting) {
+                        console.log("Meeting or Audio detected. Staying active.");
+                        return; 
+                    }
                 }
                 //If the user is not watching a video and is physically idle we send that he is idle.
                 sendToPython("IDLE","N/A");
@@ -90,8 +94,15 @@ chrome.tabs.onUpdated.addListener((tabId,changeInfo,tab)=>{
         chrome.idle.queryState(15,(state)=>{
             //If we are idle and the sound is now gone, we can stop counting time in the tab.
             if (state === "idle" || state === "locked"){
-                console.log("Video stopped, and user is really idle");
-                sendToPython("IDLE", "N/A");
+                const isMeeting = tab.url.includes("meet.google.com") || tab.url.includes("zoom.us");
+
+                if (!isMeeting) {
+                    console.log("Video stopped and user is away. Sending IDLE.");
+                    sendToPython("IDLE", "N/A");
+                }
+                else{
+                    console.log("Audio stopped but it's a Meeting. Keeping active.");
+                }
             }
         });
     }
