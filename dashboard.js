@@ -1,4 +1,4 @@
-let myChartInstance = null;
+/*let myChartInstance = null;
 let timelineChartInstance = null;
 let currentView = 'today';
 
@@ -185,5 +185,214 @@ async function loadChart(type = 'today') {
         console.error("Dashboard Error:", e);
         statusDot.className = 'offline';
         statusText.innerText = 'Server Offline';
+    }
+}*/
+let myChartInstance = null;
+let timelineChartInstance = null;
+let currentView = 'today';
+
+// 1. Initial Setup & Event Listeners
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('btn-today').addEventListener('click', () => loadChart('today'));
+    document.getElementById('btn-all').addEventListener('click', () => loadChart('all'));
+    document.getElementById('refresh-btn').addEventListener('click', refreshCurrentView);
+    document.getElementById('date-picker').addEventListener('change', loadDateFromPicker);
+
+    loadChart('today');
+});
+
+function refreshCurrentView() {
+    loadChart(currentView);
+}
+
+function loadDateFromPicker() {
+    const dateVal = document.getElementById('date-picker').value;
+    if (dateVal) loadChart(`date/${dateVal}`);
+}
+
+/**
+ * Converts raw seconds into human-readable H/M/S for the UI
+ */
+function formatSeconds(totalSeconds) {
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = Math.floor(totalSeconds % 60);
+
+    let parts = [];
+    if (h > 0) parts.push(`${h}h`);
+    if (m > 0 || h > 0) parts.push(`${m}m`);
+    parts.push(`${s}s`);
+    
+    return parts.length > 0 ? parts.join(' ') : "0s";
+}
+
+// 2. The Timeline Logic (The Histogram)
+async function loadTimeline(selectedDomain = null) {
+    const ctx = document.getElementById('timelineChart').getContext('2d');
+    const timelineTitle = document.getElementById('timeline-title');
+    
+    timelineTitle.innerText = selectedDomain 
+        ? `Timeline for ${selectedDomain}` 
+        : "Total Activity Timeline (24h)";
+
+    try {
+        let url = `http://127.0.0.1:8000/timeline`;
+        const response = await fetch(url);
+        const result = await response.json(); 
+
+        let hourlyBuckets = new Array(24).fill(0);
+
+        if (result.events) {
+            result.events.forEach(event => {
+                const localDate = new Date(event.timestamp);
+                const hour = localDate.getHours(); 
+
+                if (!selectedDomain || event.domain === selectedDomain) {
+                    // Convert seconds to minutes for the bar chart display
+                    hourlyBuckets[hour] += (event.duration / 60);
+                }
+            });
+        }
+
+        const roundedBuckets = hourlyBuckets.map(minutes => Math.floor(minutes));
+        const labels = Array.from({ length: 24 }, (_, i) => `${i}:00`);
+
+        if (timelineChartInstance) timelineChartInstance.destroy();
+
+        timelineChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Minutes Active',
+                    data: roundedBuckets,
+                    backgroundColor: selectedDomain ? '#FF6384' : '#36A2EB',
+                    borderRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: { 
+                        beginAtZero: true, 
+                        max: 60,
+                        title: { display: true, text: 'Minutes' } 
+                    }
+                }
+            }
+        });
+    } catch (e) {
+        console.error("Timeline Error:", e);
+    }
+}
+
+// 3. The Main Summary Logic (The Doughnut)
+async function loadChart(type = 'today') {
+    currentView = type;
+    const statusDot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+    const title = document.getElementById('chart-title');
+    const totalDisplay = document.getElementById('total-time-display');
+    const noDataMsg = document.getElementById('no-data-msg');
+    const chartCanvas = document.getElementById('myChart');
+    const refreshBtn = document.getElementById('refresh-btn');
+    const datePicker = document.getElementById('date-picker');
+
+    refreshBtn.innerText = "🔄 Syncing...";
+
+    if (type === 'today' || type === 'all') datePicker.value = "";
+    else if (type.startsWith('date/')) datePicker.value = type.split('/')[1];
+
+    noDataMsg.style.display = 'none';
+    chartCanvas.style.display = 'block';
+
+    if (type === 'today') title.innerText = "Today's Activity";
+    else if (type === 'all') title.innerText = "All-Time History";
+    else title.innerText = `Activity for ${type.split('/')[1]}`;
+
+    try {
+        const response = await fetch(`http://127.0.0.1:8000/summary/${type}`);
+        if (!response.ok) throw new Error('Network error');
+
+        const data = await response.json();
+        statusDot.className = 'online';
+        statusText.innerText = 'Server Online';
+
+        const labels = Object.keys(data);
+        if (labels.length === 0) {
+            noDataMsg.style.display = 'block';
+            chartCanvas.style.display = 'none';
+            totalDisplay.innerText = "Total: 0s";
+            if (myChartInstance) myChartInstance.destroy();
+            return;
+        }
+
+        let grandTotalSeconds = 0;
+        
+        // --- THE FIX: INTELLIGENT PARSING ---
+        const values = labels.map(l => {
+            const parts = data[l].match(/\d+/g).map(Number);
+            let seconds = 0;
+
+            if (parts.length === 3) { 
+                // [Hours, Minutes, Seconds]
+                seconds = (parts[0] * 3600) + (parts[1] * 60) + parts[2];
+            } else if (parts.length === 2) { 
+                // [Minutes, Seconds]
+                seconds = (parts[0] * 60) + parts[1];
+            } else if (parts.length === 1) { 
+                // [Seconds]
+                seconds = parts[0];
+            }
+
+            grandTotalSeconds += seconds; 
+            return seconds;
+        });
+
+        totalDisplay.innerText = `Total: ${formatSeconds(grandTotalSeconds)}`;
+
+        const ctx = chartCanvas.getContext('2d');
+        if (myChartInstance) myChartInstance.destroy();
+
+        myChartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF', '#7BC225'],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                onClick: (event, elements) => {
+                    if (elements.length > 0) {
+                        const index = elements[0].index;
+                        const domain = labels[index];
+                        loadTimeline(domain);
+                    } else {
+                        loadTimeline();
+                    }
+                },
+                plugins: {
+                    legend: { position: 'bottom' },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => `${ctx.label}: ${formatSeconds(ctx.raw)}`
+                        }
+                    }
+                }
+            }
+        });
+
+        loadTimeline();
+
+    } catch (e) {
+        console.error("Dashboard Error:", e);
+        statusDot.className = 'offline';
+        statusText.innerText = 'Server Offline';
+    } finally {
+        refreshBtn.innerText = "🔄 Refresh";
     }
 }
