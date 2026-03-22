@@ -1,11 +1,12 @@
 from pydantic import BaseModel
-from fastapi import FastAPI
+from fastapi import FastAPI,Query
 from sqlalchemy import create_engine,Column,Integer,String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime,time,timedelta , timezone 
 from sqlalchemy import DateTime,func,Float,Date
+from datetime import date as date_obj
 
 
 ##We tell the program where to create our database file. 
@@ -124,14 +125,18 @@ def root(data:Activity):
 @app.get("/summary/all")
 def get_history():
     with SessionLocal() as db:
+        summary = {}
         ignored_domains = ["127.0.0.1", "newtab", "extensions","IDLE","System/New Tab","chrome-extension://","file://","localhost"]
         results = db.query(DBActivity.domain,func.sum(DBActivity.duration_seconds).label("total_seconds")).filter(DBActivity.domain.notin_(ignored_domains)).group_by(DBActivity.domain).all()
 
-        summary = {
-            domain: format_time(total_seconds) 
-            for domain, total_seconds in results if total_seconds > 0 and not any(ign in domain for ign in ignored_domains)
-                    
-        }
+
+        for domain, total_seconds in results:
+            if total_seconds <=0:
+                continue
+            is_ignored = any(ign in domain for ign in ignored_domains)
+            if not is_ignored:
+                summary[domain] = total_seconds
+        
     return summary
 
 
@@ -185,22 +190,40 @@ def get_today_data():
             db.close()
     
 @app.get("/timeline")#needs to fix
-def get_timeline():
+def get_timeline(target_date :str =Query(None)):
     with SessionLocal() as db:
-        now = get_now()
-        current_date = now.date()
         
-        # DATA FETCHING 
-        # We grab all logs for today using the indexed 'date' column.
+        
+        now = get_now()
+        
+        if target_date:
+            try:
+                selected_date = datetime.strptime(target_date, '%Y-%m-%d').date()
+            except ValueError:
+                return {"error": "Invalid date format. Use YYYY-MM-DD"}
+        else:
+            selected_date = now.date()
+        
+        
+        # We grab all logs for selected day  using the indexed 'date' column.
         # This is much faster for the DB than searching by full timestamps.
         data = db.query(DBActivity).filter(
-            DBActivity.date == current_date
+            DBActivity.date == selected_date
         ).order_by(DBActivity.time_start).all()
         
-        if not data:
-            return {"events" : []}
+        if not data: 
+            return {"events": []}
         
-
+        # Define the 'End Limit' for active sessions
+        # If we are looking at TODAY, an open tab ends at 'now'.
+        # If we are looking at the PAST, an open tab technically ended at midnight 
+        # of that day (to avoid leaking data into the next day).
+        if selected_date == now.date():
+            end_limit = now
+        else:
+            # End of the selected day (23:59:59)
+            end_limit = datetime.combine(selected_date, datetime.max.time())
+            
         # Debug: Check your terminal! If this is 0, the DB isn't finding rows.
         print(f"DEBUG: Found {len(data)} rows for timeline today.")
         
@@ -214,7 +237,9 @@ def get_timeline():
             if entry.domain and not any(ign in entry.domain for ign in ignored):
                 # If a session is currently active (time_end is None), 
                 # we 'clip' its end to exactly 'now'.
-                intervals.append((entry.time_start,entry.time_end or now))
+                end_time = entry.time_end if entry.time_end else end_limit
+                intervals.append((entry.time_start,end_time))
+        
         if not intervals:
             return {"events":[]}
         # THE GREEDY MERGE ALGORITHM
@@ -258,7 +283,7 @@ def get_timeline():
                     hourly_seconds[h] += (overlap_end - overlap_start).total_seconds()
         
         # Chart.js expects a list of objects. We map our 24 buckets to the UI.            
-        day_base = datetime.combine(current_date,datetime.min.time())
+        day_base = datetime.combine(selected_date,datetime.min.time())
         events = [{
             "timestamp": (day_base + timedelta(hours = i)).strftime('%Y-%m-%dT%H:%M:%S'),
             "duration":min(sec,3600),
@@ -327,8 +352,8 @@ def calculate_summary_from_entries(data,end_limit=None):
             raw_summary[domain] = 0.0
         raw_summary[domain] += duration
         
-    display_summary = {}
-    for domain,seconds in raw_summary.items():
-        if seconds > 0:
-            display_summary[domain] =format_time(seconds)
-    return display_summary
+    #display_summary = {}
+    #for domain,seconds in raw_summary.items():
+    #    if seconds > 0:
+    #        display_summary[domain] =format_time(seconds)
+    return raw_summary

@@ -186,7 +186,7 @@ async function loadChart(type = 'today') {
         statusDot.className = 'offline';
         statusText.innerText = 'Server Offline';
     }
-}*/
+}
 let myChartInstance = null;
 let timelineChartInstance = null;
 let currentView = 'today';
@@ -212,7 +212,7 @@ function loadDateFromPicker() {
 
 /**
  * Converts raw seconds into human-readable H/M/S for the UI
- */
+ *
 function formatSeconds(totalSeconds) {
     const h = Math.floor(totalSeconds / 3600);
     const m = Math.floor((totalSeconds % 3600) / 60);
@@ -227,7 +227,7 @@ function formatSeconds(totalSeconds) {
 }
 
 // 2. The Timeline Logic (The Histogram)
-async function loadTimeline(selectedDomain = null) {
+async function loadTimeline(selectedDomain = null,selectedDate = null) {
     const ctx = document.getElementById('timelineChart').getContext('2d');
     const timelineTitle = document.getElementById('timeline-title');
     
@@ -237,6 +237,9 @@ async function loadTimeline(selectedDomain = null) {
 
     try {
         let url = `http://127.0.0.1:8000/timeline`;
+        if (selectedDate) {
+            url += `?target_date=${selectedDate}`;
+        }
         const response = await fetch(url);
         const result = await response.json(); 
 
@@ -387,6 +390,227 @@ async function loadChart(type = 'today') {
         });
 
         loadTimeline();
+
+    } catch (e) {
+        console.error("Dashboard Error:", e);
+        statusDot.className = 'offline';
+        statusText.innerText = 'Server Offline';
+    } finally {
+        refreshBtn.innerText = "🔄 Refresh";
+    }
+}*/
+// --- GLOBAL INSTANCES ---
+let myChartInstance = null;         // Doughnut Chart (Summary)
+let timelineChartInstance = null;   // Bar Chart (Timeline)
+let currentView = 'today';          // Tracks the current state
+
+// 1. INITIALIZATION
+document.addEventListener('DOMContentLoaded', () => {
+    // Button Listeners
+    document.getElementById('btn-today').addEventListener('click', () => loadChart('today'));
+    document.getElementById('btn-all').addEventListener('click', () => loadChart('all'));
+    document.getElementById('refresh-btn').addEventListener('click', refreshCurrentView);
+    
+    // Calendar Picker Listener
+    document.getElementById('date-picker').addEventListener('change', loadDateFromPicker);
+
+    // Initial Load
+    loadChart('today');
+});
+
+function refreshCurrentView() {
+    loadChart(currentView);
+}
+
+function loadDateFromPicker() {
+    const dateVal = document.getElementById('date-picker').value;
+    if (dateVal) {
+        // Formats the call as 'date/2026-03-21' for the backend
+        loadChart(`date/${dateVal}`);
+    }
+}
+
+/**
+ * Helper: Converts raw seconds into human-readable H/M/S
+ */
+function formatSeconds(totalSeconds) {
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = Math.floor(totalSeconds % 60);
+
+    let parts = [];
+    if (h > 0) parts.push(`${h}h`);
+    if (m > 0 || h > 0) parts.push(`${m}m`);
+    parts.push(`${s}s`);
+    
+    return parts.length > 0 ? parts.join(' ') : "0s";
+}
+
+// 2. THE TIMELINE LOGIC (BAR CHART)
+async function loadTimeline(selectedDomain = null, selectedDate = null) {
+    const ctx = document.getElementById('timelineChart').getContext('2d');
+    const timelineTitle = document.getElementById('timeline-title');
+    
+    timelineTitle.innerText = selectedDomain 
+        ? `Timeline for ${selectedDomain}` 
+        : "Total Activity Timeline (24h)";
+
+    try {
+        // Construct URL with optional target_date query parameter
+        let url = `http://127.0.0.1:8000/timeline`;
+        if (selectedDate) {
+            url += `?target_date=${selectedDate}`;
+        }
+
+        const response = await fetch(url);
+        const result = await response.json(); 
+
+        // Initialize 24 buckets (00:00 to 23:00)
+        let hourlyBuckets = new Array(24).fill(0);
+
+        if (result.events) {
+            result.events.forEach(event => {
+                const localDate = new Date(event.timestamp);
+                const hour = localDate.getHours(); 
+
+                // Filter by domain if one is selected in the doughnut chart
+                if (!selectedDomain || event.domain === selectedDomain) {
+                    // Convert backend seconds to minutes for display
+                    hourlyBuckets[hour] += (event.duration / 60);
+                }
+            });
+        }
+
+        const roundedBuckets = hourlyBuckets.map(minutes => Math.floor(minutes));
+        const labels = Array.from({ length: 24 }, (_, i) => `${i}:00`);
+
+        if (timelineChartInstance) timelineChartInstance.destroy();
+
+        timelineChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Minutes Active',
+                    data: roundedBuckets,
+                    backgroundColor: selectedDomain ? '#FF6384' : '#36A2EB',
+                    borderRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: { 
+                        beginAtZero: true, 
+                        max: 60, // Enforce the 60-minute hour limit visually
+                        title: { display: true, text: 'Minutes' } 
+                    }
+                }
+            }
+        });
+    } catch (e) {
+        console.error("Timeline Error:", e);
+    }
+}
+
+// 3. THE MAIN SUMMARY LOGIC (DOUGHNUT CHART)
+async function loadChart(type = 'today') {
+    currentView = type;
+    const statusDot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+    const title = document.getElementById('chart-title');
+    const totalDisplay = document.getElementById('total-time-display');
+    const noDataMsg = document.getElementById('no-data-msg');
+    const chartCanvas = document.getElementById('myChart');
+    const refreshBtn = document.getElementById('refresh-btn');
+    const datePicker = document.getElementById('date-picker');
+
+    refreshBtn.innerText = "🔄 Syncing...";
+
+    // --- DATE EXTRACTION ---
+    let dateForTimeline = null;
+    if (type === 'today' || type === 'all') {
+        datePicker.value = "";
+    } else if (type.startsWith('date/')) {
+        dateForTimeline = type.split('/')[1];
+        datePicker.value = dateForTimeline;
+    }
+
+    // UI Updates
+    noDataMsg.style.display = 'none';
+    chartCanvas.style.display = 'block';
+
+    if (type === 'today') title.innerText = "Today's Activity";
+    else if (type === 'all') title.innerText = "All-Time History";
+    else title.innerText = `Activity for ${dateForTimeline}`;
+
+    try {
+        const response = await fetch(`http://127.0.0.1:8000/summary/${type}`);
+        if (!response.ok) throw new Error('Network error');
+
+        const data = await response.json();
+        statusDot.className = 'online';
+        statusText.innerText = 'Server Online';
+
+        const labels = Object.keys(data);
+        if (labels.length === 0) {
+            noDataMsg.style.display = 'block';
+            chartCanvas.style.display = 'none';
+            totalDisplay.innerText = "Total: 0s";
+            if (myChartInstance) myChartInstance.destroy();
+            // Even if no summary data, try to load an empty timeline for that date
+            loadTimeline(null, dateForTimeline);
+            return;
+        }
+
+
+        const values = Object.values(data);
+        const grandTotalSeconds = values.reduce((acc, curr) => {
+            const val = parseFloat(curr);
+            return acc + (isNaN(val) ? 0 : val);
+        }, 0);
+
+        totalDisplay.innerText = `Total: ${formatSeconds(grandTotalSeconds)}`;
+
+
+        const ctx = chartCanvas.getContext('2d');
+        if (myChartInstance) myChartInstance.destroy();
+
+        myChartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF', '#7BC225'],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                onClick: (event, elements) => {
+                    if (elements.length > 0) {
+                        const index = elements[0].index;
+                        const domain = labels[index];
+                        // Pass current date to keep timeline in sync when filtering by domain
+                        loadTimeline(domain, dateForTimeline);
+                    } else {
+                        loadTimeline(null, dateForTimeline);
+                    }
+                },
+                plugins: {
+                    legend: { position: 'bottom' },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => `${ctx.label}: ${formatSeconds(ctx.raw)}`
+                        }
+                    }
+                }
+            }
+        });
+
+        // --- FINAL SYNC: Update Timeline whenever the Summary updates ---
+        loadTimeline(null, dateForTimeline);
 
     } catch (e) {
         console.error("Dashboard Error:", e);
