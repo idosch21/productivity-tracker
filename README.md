@@ -28,6 +28,8 @@ Persistent Volume Architecture: Utilizes Docker volumes to map local SQLite data
 
 Interactive 24-Hour Timeline: A dynamic histogram that syncs with your local timezone (IST) and allows for "drill-down" filtering by clicking domain slices in the doughnut chart.
 
+Interactive Drill-Down: A dynamic 24-hour histogram (IST sync) that allows you to filter specific domain activity by clicking slices in the doughnut chart.
+
 ## ⚙️ Setup & Installation
 1. The Modern Way (Docker - Recommended)
 The most reliable way to run Chronos. This handles all dependencies and background execution automatically.
@@ -67,6 +69,8 @@ Persistence: The database lives at ./data/chronos.db on the host machine to ensu
 [x] Containerization: Full Docker & Docker Compose integration.
 
 [x] Cloud Registry: Automated image hosting via GHCR.
+
+[x] Domain Isolation: Interactive histogram filtering for specific site analysis.
 
 [ ] Mobile Sync (WIP): Utilizing chrome.sessions to proxy iPhone Chrome tabs via the desktop extension.
 
