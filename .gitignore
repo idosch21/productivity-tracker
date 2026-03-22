@@ -4,7 +4,7 @@ __pycache__/
 *.pyc
 
 # Database 
-tracker.db
+*.db
 
 # IDE settings
 .vscode/
