@@ -1,59 +1,75 @@
-# 🕒 Chronos: Smart Productivity Tracker 
-
-A full-stack web activity tracker that uses a Chrome Extension to log browsing telemetry and a FastAPI backend to visualize productivity in real-time.
+### 🕒 Chronos: Smart Productivity Tracker
+A full-stack web activity tracker that uses a Chrome Extension to log browsing telemetry and a containerized FastAPI backend to visualize productivity in real-time.
 
 ## 🚀 The Mission
-Most time trackers are "naive"—they count time as long as a tab is open. **Chronos** is built for accuracy by utilizing the **Chrome Idle API** and **Media Playback detection** to ensure your "Deep Work" stats reflect reality, not just open tabs.
+Most time trackers are "naive"—they count time as long as a tab is open. Chronos is built for high-fidelity accuracy by utilizing the Chrome Idle API and Media Playback detection to ensure your "Deep Work" stats reflect reality, not just idle tabs.
 
 ## 🛠️ Tech Stack
-* **Extension:** JavaScript (Chrome APIs: Tabs, Idle, Runtime)
-* **Backend:** Python 3.10+ (FastAPI, Pydantic, SQLAlchemy)
-* **Database:** SQLite (Relational data for precise timelines)
-* **Dashboard:** HTML5/CSS3 + Chart.js (Interactive Data Visualization)
+Extension: JavaScript (Chrome APIs: Tabs, Idle, Runtime, Sessions)
+
+Backend: Python 3.12+ (FastAPI, SQLAlchemy, Pydantic)
+
+Infrastructure: Docker & Docker Compose
+
+Registry: GitHub Container Registry (ghcr.io)
+
+Database: SQLite (Persistent O(1) daily SQL filtering)
+
+Dashboard: HTML5/CSS3 + Chart.js 4.x (Interactive Visualization)
 
 ## ✨ Key Features
-* **Intelligent Idle Detection & Video Bypass:** Automatically stops the clock after 15 seconds of inactivity. **However**, if the active tab is playing audio or video (e.g., YouTube lectures), Chronos knows to keep the timer running.
-* **Historical Data Explorer:** Beyond "Today's Stats," use the built-in calendar picker to jump to any specific date in your history to see where your time went.
-* **All-Time Summary:** A dedicated view to see your cumulative usage across all recorded history.
-* **Domain Aggregation:** Automatically strips the domain name (e.g., `google.com`) from messy URLs for clean, readable analytics.
-* **Session Guard:** Automatically filters out "noise" data, such as local project files (`file:///`), Chrome system pages, and the tracker's own dashboard.
-* **Interactive 24-Hour Timeline:** A dynamic histogram that automatically maps UTC data to your local timezone and supports "drill-down" filtering by clicking specific domains in the doughnut chart.
-## ⚙️ Setup & Installation
+Background Daemon: Runs as a containerized service with a restart: always policy. No manual terminal management required; it starts automatically with your OS.
 
-### 1. Backend (FastAPI)
-```bash
+The Midnight Split: Proprietary backend logic that automatically closes "Yesterday's" sessions at 23:59:59 and opens "Today's" at 00:00:00 for perfect daily reporting.
+
+Intelligent Idle & Video Bypass: Automatically pauses tracking after 15 seconds of inactivity unless the active tab is playing audio/video (e.g., YouTube lectures or Spotify).
+
+Persistent Volume Architecture: Utilizes Docker volumes to map local SQLite data (./data) into the container, ensuring your history survives updates and is never exposed to public version control.
+
+Interactive 24-Hour Timeline: A dynamic histogram that syncs with your local timezone (IST) and allows for "drill-down" filtering by clicking domain slices in the doughnut chart.
+
+## ⚙️ Setup & Installation
+1. The Modern Way (Docker - Recommended)
+The most reliable way to run Chronos. This handles all dependencies and background execution automatically.
+
+```Bash
 # Clone the repository
-git clone [https://github.com/idosch21/productivity-tracker.git](https://github.com/idosch21/productivity-tracker.git)
+git clone https://github.com/idosch21/productivity-tracker.git
 cd productivity-tracker
 ```
-# Create and activate virtual environment
+
+
+# Start the background service
 ```bash
-python -m venv venv
-.\venv\Scripts\activate  # On Windows
+docker compose up -d
 ```
 
-# Install dependencies
-pip install fastapi uvicorn sqlalchemy pydantic
-2. Run the Server
+2. The Development Way (Manual venv)
+Use this if you need to debug the Python logic directly.
+
 ```Bash
+python -m venv venv
+.\venv\Scripts\activate
+pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
-3. Chrome Extension
-Open chrome://extensions/ in your browser.
+## 📦 Deployment & CI/CD
+This project is integrated with GitHub Container Registry (GHCR) for easy deployment to cloud providers like AWS.
 
-Enable Developer Mode (top right).
+Official Image: ghcr.io/idosch21/chronos-api:latest
 
-Click Load Unpacked and select the folder containing the extension files.
-
-4. Dashboard
-Simply open index.html in your browser to view your live stats!
+Persistence: The database lives at ./data/chronos.db on the host machine to ensure data safety across container rebuilds.
 
 ## 🚧 Roadmap
-[x] Date Filtering: Explore history day-by-day.
+[x] Date Filtering: Explore historical activity via calendar picker.
 
-[x] Audible Detection: Stay active while watching educational content.
+[x] Containerization: Full Docker & Docker Compose integration.
 
-[x] Smart Filtering: Ignore local files and dashboard activity.
+[x] Cloud Registry: Automated image hosting via GHCR.
+
+[ ] Mobile Sync (WIP): Utilizing chrome.sessions to proxy iPhone Chrome tabs via the desktop extension.
+
+[ ] Weekly Reports: Automated email summaries of productivity trends.
 
 Created by Ido
