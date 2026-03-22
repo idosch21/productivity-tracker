@@ -190,7 +190,7 @@ def get_today_data():
             db.close()
     
 @app.get("/timeline")#needs to fix
-def get_timeline(target_date :str =Query(None)):
+def get_timeline(target_date :str =Query(None),domain:str=None):
     with SessionLocal() as db:
         
         
@@ -203,14 +203,14 @@ def get_timeline(target_date :str =Query(None)):
                 return {"error": "Invalid date format. Use YYYY-MM-DD"}
         else:
             selected_date = now.date()
+            
+            
+        query = db.query(DBActivity).filter(DBActivity.date == selected_date)
+        if domain:
+            query = query.filter(DBActivity.domain.contains(domain))
+        data = query.order_by(DBActivity.time_start).all()
         
-        
-        # We grab all logs for selected day  using the indexed 'date' column.
-        # This is much faster for the DB than searching by full timestamps.
-        data = db.query(DBActivity).filter(
-            DBActivity.date == selected_date
-        ).order_by(DBActivity.time_start).all()
-        
+        print(f"DEBUG: Timeline requested for {domain or 'Total'}. Found {len(data)} rows.")
         if not data: 
             return {"events": []}
         
@@ -287,7 +287,7 @@ def get_timeline(target_date :str =Query(None)):
         events = [{
             "timestamp": (day_base + timedelta(hours = i)).strftime('%Y-%m-%dT%H:%M:%S'),
             "duration":min(sec,3600),
-            "domain": "Minutes Active"}
+            "domain": domain if domain else "Total Activity"}
                 for i,sec in enumerate(hourly_seconds)]
            
         return {"events": events}                                                           

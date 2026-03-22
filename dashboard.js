@@ -449,70 +449,54 @@ function formatSeconds(totalSeconds) {
 // 2. THE TIMELINE LOGIC (BAR CHART)
 async function loadTimeline(selectedDomain = null, selectedDate = null) {
     const ctx = document.getElementById('timelineChart').getContext('2d');
-    const timelineTitle = document.getElementById('timeline-title');
     
-    timelineTitle.innerText = selectedDomain 
-        ? `Timeline for ${selectedDomain}` 
-        : "Total Activity Timeline (24h)";
+    // 1. Build the URL correctly
+    const url = new URL('http://127.0.0.1:8000/timeline');
+    if (selectedDate) url.searchParams.append('target_date', selectedDate);
+    if (selectedDomain) url.searchParams.append('domain', selectedDomain);
 
     try {
-        // Construct URL with optional target_date query parameter
-        let url = `http://127.0.0.1:8000/timeline`;
-        if (selectedDate) {
-            url += `?target_date=${selectedDate}`;
-        }
-
         const response = await fetch(url);
         const result = await response.json(); 
 
-        // Initialize 24 buckets (00:00 to 23:00)
+        // 2. ALWAYS reset buckets to zero
         let hourlyBuckets = new Array(24).fill(0);
 
         if (result.events) {
             result.events.forEach(event => {
                 const localDate = new Date(event.timestamp);
                 const hour = localDate.getHours(); 
-
-                // Filter by domain if one is selected in the doughnut chart
-                if (!selectedDomain || event.domain === selectedDomain) {
-                    // Convert backend seconds to minutes for display
-                    hourlyBuckets[hour] += (event.duration / 60);
-                }
+                // Convert seconds to minutes
+                hourlyBuckets[hour] += (event.duration / 60);
             });
         }
+        const roundedBuckets = hourlyBuckets.map(minutes => {
+            return Math.floor(minutes); // 14.793 becomes 14
+        });
 
-        const roundedBuckets = hourlyBuckets.map(minutes => Math.floor(minutes));
-        const labels = Array.from({ length: 24 }, (_, i) => `${i}:00`);
+        // 3. Update the Chart
+        if (window.timelineChartInstance) window.timelineChartInstance.destroy();
 
-        if (timelineChartInstance) timelineChartInstance.destroy();
-
-        timelineChartInstance = new Chart(ctx, {
+        window.timelineChartInstance = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: labels,
+                labels: Array.from({ length: 24 }, (_, i) => `${i}:00`),
                 datasets: [{
-                    label: 'Minutes Active',
-                    data: roundedBuckets,
+                    label: selectedDomain ? `Minutes on ${selectedDomain}` : 'Total Minutes Active',
+                    data: roundedBuckets, // Use the fresh data!
                     backgroundColor: selectedDomain ? '#FF6384' : '#36A2EB',
                     borderRadius: 5
                 }]
             },
             options: {
                 responsive: true,
-                scales: {
-                    y: { 
-                        beginAtZero: true, 
-                        max: 60, // Enforce the 60-minute hour limit visually
-                        title: { display: true, text: 'Minutes' } 
-                    }
-                }
+                scales: { y: { beginAtZero: true, max: 60 } }
             }
         });
     } catch (e) {
         console.error("Timeline Error:", e);
     }
 }
-
 // 3. THE MAIN SUMMARY LOGIC (DOUGHNUT CHART)
 async function loadChart(type = 'today') {
     currentView = type;
