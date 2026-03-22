@@ -1,0 +1,16 @@
+services:
+  chronos-api:
+    build: .
+    container_name: chronos_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      # This is the "Volume Trick." It maps a local 'data' folder
+      # on your PC to the '/app/data' folder inside Docker.
+      - ./data:/app/data
+    environment:
+      # Set your timezone so "The Midnight Split" works correctly!
+      - TZ=Asia/Jerusalem
+      # Tell your app to look for the DB in the data folder
+      - DATABASE_URL=sqlite:///./data/chronos.db
+    restart: always

@@ -10,7 +10,7 @@ from sqlalchemy import DateTime,func,Float,Date
 
 ##We tell the program where to create our database file. 
 ##'sqlite:///./tracker.db' means: "Create a simple file named tracker.db in this folder."
-DATABASE_URL = "sqlite:///./tracker.db"
+DATABASE_URL = "sqlite:///./data/tracker.db"
 
 ## The 'Engine' is the physical connection between Python and the database file.
 engine = create_engine(DATABASE_URL)
