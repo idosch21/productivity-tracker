@@ -5,7 +5,7 @@ A full-stack web activity tracker that uses a Chrome Extension to log browsing t
 Most time trackers are "naive"—they count time as long as a tab is open. Chronos is built for high-fidelity accuracy by utilizing the Chrome Idle API and Media Playback detection to ensure your "Deep Work" stats reflect reality, not just idle tabs.
 
 ## 🛠️ Tech Stack
-Extension: JavaScript (Chrome APIs: Tabs, Idle, Runtime, Sessions)
+Extension: JavaScript (Chrome APIs: Tabs, Idle, Runtime, Sessions, Alarms)
 
 Backend: Python 3.12+ (FastAPI, SQLAlchemy, Pydantic)
 
@@ -29,6 +29,10 @@ Persistent Volume Architecture: Utilizes Docker volumes to map local SQLite data
 Interactive 24-Hour Timeline: A dynamic histogram that syncs with your local timezone (IST) and allows for "drill-down" filtering by clicking domain slices in the doughnut chart.
 
 Interactive Drill-Down: A dynamic 24-hour histogram (IST sync) that allows you to filter specific domain activity by clicking slices in the doughnut chart.
+
+Hybrid Heartbeat System: Combines instant event-driven logging (tab switches) with a 15-second "pulse" (Chrome Alarms) to ensure continuous, high-precision tracking even during long sessions.
+
+Zombie Session Prevention: Specialized backend logic that detects unexpected PC shutdowns or sleep modes. It retroactively "seals" dangling sessions based on the last recorded heartbeat, ensuring 100% data integrity without manual cleanup.
 
 ## ⚙️ Setup & Installation
 1. The Modern Way (Docker - Recommended)
@@ -61,7 +65,7 @@ This project is integrated with GitHub Container Registry (GHCR) for easy deploy
 
 Official Image: ghcr.io/idosch21/chronos-api:latest
 
-Persistence: The database lives at ./data/chronos.db on the host machine to ensure data safety across container rebuilds.
+Persistence: The database lives at ./data/tracker.db on the host machine to ensure data safety across container rebuilds.
 
 ## 🚧 Roadmap
 [x] Date Filtering: Explore historical activity via calendar picker.
@@ -71,6 +75,8 @@ Persistence: The database lives at ./data/chronos.db on the host machine to ensu
 [x] Cloud Registry: Automated image hosting via GHCR.
 
 [x] Domain Isolation: Interactive histogram filtering for specific site analysis.
+
+[x] Zombie Prevention: Retroactive gap-closing for unexpected system shutdowns.
 
 [ ] Mobile Sync (WIP): Utilizing chrome.sessions to proxy iPhone Chrome tabs via the desktop extension.
 
